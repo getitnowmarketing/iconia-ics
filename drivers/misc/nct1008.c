@@ -31,6 +31,7 @@
 #include <linux/nct1008.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm.h>
 
 #define DRIVER_NAME "nct1008"
 
@@ -1062,10 +1063,11 @@ static int __devexit nct1008_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int nct1008_suspend(struct i2c_client *client, pm_message_t state)
+#ifdef CONFIG_PM_SLEEP
+static int nct1008_suspend(struct device *dev)
 {
 	int err;
+	struct i2c_client *client = to_i2c_client(dev);
 	struct nct1008_data *data = i2c_get_clientdata(client);
 
 	disable_irq(client->irq);
@@ -1074,8 +1076,9 @@ static int nct1008_suspend(struct i2c_client *client, pm_message_t state)
 	return err;
 }
 
-static int nct1008_resume(struct i2c_client *client)
+static int nct1008_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct nct1008_data *data = i2c_get_clientdata(client);
 	int err;
 
@@ -1091,7 +1094,12 @@ static int nct1008_resume(struct i2c_client *client)
 
 	return 0;
 }
+#else
+#define nct1008_suspend NULL
+#define nct1008_resume NULL
 #endif
+
+static SIMPLE_DEV_PM_OPS(nct1008_pm, nct1008_suspend, nct1008_resume);
 
 static const struct i2c_device_id nct1008_id[] = {
 	{ DRIVER_NAME, 0 },
@@ -1102,14 +1110,11 @@ MODULE_DEVICE_TABLE(i2c, nct1008_id);
 static struct i2c_driver nct1008_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
+		.pm  = &nct1008_pm,
 	},
 	.probe		= nct1008_probe,
 	.remove		= __devexit_p(nct1008_remove),
 	.id_table	= nct1008_id,
-#ifdef CONFIG_PM
-	.suspend	= nct1008_suspend,
-	.resume		= nct1008_resume,
-#endif
 };
 
 static int __init nct1008_init(void)
